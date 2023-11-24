@@ -73,7 +73,21 @@ class DataWrapper:
         return projects
 
     def get_project_pages(self, proj):
+        final = {}
+        catsf = []
         pages = self.cur.execute("SELECT * FROM page WHERE page_project = "
-                                 "?", (proj, ))
+                                 "?", (proj, )).fetchall()
 
-        return pages
+        cats = self.cur.execute("SELECT page_category FROM page "
+                                "WHERE page_project = ?", (proj, )).fetchall()
+        for c in cats:
+            catsf.append(self.cur.execute("SELECT * FROM category WHERE "
+                                          "cat_id = ?", (c[0], )).fetchone())
+
+        for c in catsf:
+            final[c[1]] = []
+            for p in pages:
+                if p[4] == c[0]:
+                    final[c[1]].append(p)
+
+        return final

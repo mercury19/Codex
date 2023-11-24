@@ -11,7 +11,8 @@ import db_wrapper
 from kivy.app import App
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
-from kivy.properties import StringProperty, ObjectProperty, NumericProperty
+from kivy.properties import StringProperty, ObjectProperty, NumericProperty, \
+    DictProperty
 from kivy.uix.screenmanager import ScreenManager, NoTransition, Screen
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.boxlayout import BoxLayout
@@ -67,9 +68,12 @@ class ProjectPageList(ScrollView):
     pass
 
 
+# Nodes for the project treeview. Should contain information to get page
+# from database.
+# New Properties:
+# page_id: Page key for database access.
 class ProjectPageListNode(TreeViewLabel):
     page_id = NumericProperty()
-    pass
 
 
 class ContentPane(Widget):
@@ -89,6 +93,7 @@ class ProjectPageLayout(RelativeLayout):
 class ProjectPage(Screen):
     project = StringProperty()
     proj_id = NumericProperty()
+    pages_by_cat = DictProperty()
 
     # Init method to allow for setting of the above properties. May not be
     # necessary?
@@ -96,6 +101,7 @@ class ProjectPage(Screen):
         super(ProjectPage, self).__init__(**kwargs)
         self.project = a
         self.proj_id = b
+        self.pages_by_cat = db.get_project_pages(b)
 
 
 # Root for the app.
@@ -104,7 +110,6 @@ class ProjectPage(Screen):
 # not work properly as project screens are added.
 class CodexRoot(ScreenManager):
     prev_screen = StringProperty()
-    pass
 
 
 class CodexApp(App):

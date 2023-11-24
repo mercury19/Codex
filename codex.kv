@@ -146,8 +146,6 @@
         size_hint_y: None
         height: self.minimum_height
 
-<ProjectPageListNode>:
-
 <ProjectPage>:
     canvas:
         Color:
@@ -156,6 +154,7 @@
             size: self.size
             pos: self.pos
 
+    on_pre_enter: print(self.pages_by_cat)
     on_leave: app.root.prev_screen = 'mainmenu_screen'
 
     TitleBar:
