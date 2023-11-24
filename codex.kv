@@ -1,0 +1,262 @@
+#:kivy 2.2.1
+
+#:import Factory kivy.factory.Factory
+
+<MainMenuButton@Button>:
+    font_name: 'Audiowide-Regular'
+    font_size: 30
+    bold: True
+    size_hint: .65, .16
+    pos_hint: {'center_x': .5}
+    padding: 10, 20
+    on_press: app.root.prev_screen = app.root.current
+
+<BackButton@Button>:
+    font_size: 30
+    bold: True
+    text: "<"
+    size_hint: None, None
+    size: self.texture_size
+    text_size: 40, 40
+    halign: 'center'
+    valign: 'middle'
+    padding: 0, 0, 0, 5
+    pos_hint: {'left': 1, 'center_y': .5}
+    on_release: app.root.current = app.root.prev_screen
+
+<TitleBar@BoxLayout>:
+    page_title: page_title
+    title_txt: ''
+
+    canvas:
+        Color:
+            rgba: 0, 0, 1, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+    padding: 10
+    orientation: 'horizontal'
+    size_hint: 1, None
+    height: 60
+    pos_hint: {'top': 1}
+
+    BackButton:
+
+    Label:
+        id: page_title
+        font_name: 'Audiowide-Regular'
+        font_size: 30
+        bold: True
+        pos_hint: {'center_y': .5}
+        text: root.title_txt
+
+<NewProjectPrompt>:
+    canvas:
+        Color:
+            rgba: 1, .5, .8, 1
+        Rectangle:
+            size: self.size
+
+    size_hint: None, None
+    size: 360, 180
+    pos_hint: {'center_x': .5, 'center_y': .5}
+
+    Label:
+        size_hint: None, None
+        size: self.texture_size
+        pos_hint: {'center_x': .5, 'top': .92}
+
+        font_size: 24
+        padding: 10
+        bold: True
+        text: 'Create Project'
+
+    TextInput:
+        id: input
+        multiline: False
+        focus: True
+        write_tab: False
+
+        cursor_width: '8sp'
+        font_size: 18
+        text: 'New Project'
+
+        size_hint: None, None
+        width: 280
+        height: self.minimum_height
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+    Button:
+        size_hint: None, None
+        size: self.texture_size
+        pos_hint: {'center_x': .12, 'center_y': .15}
+
+        font_size: 18
+        padding: 6
+        bold: True
+        text: 'Cancel'
+
+        on_release: self.parent.parent.remove_widget(self.parent)
+
+    Button:
+        size_hint: None, None
+        size: self.texture_size
+        pos_hint: {'center_x': .88, 'center_y': .15}
+
+        font_size: 18
+        padding: 6
+        bold: True
+        text: 'Create'
+
+        on_release: app.add_project(root.ids.input.text, app.root.ids.project_list); self.parent.parent.remove_widget(self.parent)
+
+<ProjectEntry>:
+    size_hint: 1, None
+    pos_hint: {'center_x': .5}
+    height: 100
+
+    Button:
+        text: root.title_txt
+        size_hint: 1, 1
+        on_press: app.root.prev_screen = app.root.current
+        on_release: root.open_project(app.root)
+
+    Button:
+        text: "X"
+        size_hint: None, None
+        size: 20, 20
+        pos_hint: {'center_x': .9, 'center_y': .5}
+        on_release: root.remove_project()
+
+<ProjectPageList>:
+    canvas:
+        Color:
+            rgba: 0, .5, .6, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+    page_tree: page_tree
+    size_hint_x: (3/19) if (app.root.width >= 950) else 0
+    do_scroll_x: False
+    always_overscroll: False
+
+    TreeView:
+        id: page_tree
+        size_hint_y: None
+        height: self.minimum_height
+
+<ProjectPageListNode>:
+
+<ProjectPage>:
+    canvas:
+        Color:
+            rgba: 1, .5, .6, 1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+    on_leave: app.root.prev_screen = 'mainmenu_screen'
+
+    TitleBar:
+        title_txt: root.project
+
+    RelativeLayout:
+        canvas:
+            Color:
+                rgba: .3, 0, .1, 1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+        size_hint: 1, (1-(60/root.height))
+
+        ProjectPageList:
+
+
+<CodexRoot>:
+    Screen:
+        id: mainmenu_screen
+        name: 'mainmenu_screen'
+        canvas:
+            Color:
+                rgba: 1, 1, 0, 1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+        BoxLayout:
+            id: mainmenu
+            padding: 0, 0, 0, 75
+            spacing: 10
+            size_hint: None, None
+            width: 400 + ((root.width-800)/root.width)*400
+            height: 500 + ((root.height-600)/root.height)*400
+            pos_hint: {'center_x': .5, 'center_y': .5}
+
+            canvas:
+                Color:
+                    rgba: 0, 0.5, 0.4, 1
+                Rectangle:
+                    size: self.size
+                    pos: self.pos
+            orientation: 'vertical'
+
+            Label:
+                font_name: 'Audiowide-Regular'
+                font_size: 60
+                text: 'The Codex'
+                color: 1, 0, 0, 1
+                size_hint: None, .36
+                pos_hint: {'center_x': 0.5}
+
+            MainMenuButton:
+                text: 'Open Last'
+
+            MainMenuButton:
+                text: 'Open Project'
+                on_release: root.current = 'project_browser'
+
+            MainMenuButton:
+                text: 'New Project'
+                on_release: root.ids.mainmenu_screen.add_widget(Factory.NewProjectPrompt())
+
+            MainMenuButton:
+                text: 'Settings'
+
+    Screen:
+        id: project_browser
+        name: 'project_browser'
+        canvas:
+            Color:
+                rgba: .8, .5, 0, 1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+        project_list: project_list
+
+        on_pre_enter: app.load_proj_list(root.ids.project_list)
+
+        TitleBar:
+            title_txt: 'Project Browser'
+
+        ScrollView:
+            size_hint: 1, None
+            height: root.height - 60
+            do_scroll_x: False
+            always_overscroll: False
+
+            BoxLayout:
+                id: project_list
+                canvas:
+                    Color:
+                        rgba: 1, 0, 1, 1
+                    Rectangle:
+                        size: self.size
+                        pos: self.pos
+
+                orientation: 'vertical'
+                padding: (root.width * .08), (root.height * .02)
+                size_hint_y: None
+                height: self.minimum_height
