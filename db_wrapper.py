@@ -1,5 +1,6 @@
 #! python
 
+import datetime
 import sqlite3
 
 
@@ -7,25 +8,23 @@ class DataWrapper:
     default_cat = ['Main', 'Character', 'Location', 'Organization']
 
     def __init__(self):
-        self.data = sqlite3.connect('data.db')
+        self.data = sqlite3.connect('data.db',
+                                    detect_types=sqlite3.PARSE_DECLTYPES |
+                                    sqlite3.PARSE_COLNAMES)
         self.data.execute("PRAGMA foreign_keys = 1")
 
         self.cur = self.data.cursor()
 
         self.cur.execute("CREATE TABLE IF NOT EXISTS project(project_id "
-                         "INTEGER PRIMARY KEY, project_title)")
+                         "INTEGER PRIMARY KEY, project_title, "
+                         "project_touched)")
 
         self.cur.execute("CREATE TABLE IF NOT EXISTS page(page_id INTEGER "
                          "PRIMARY KEY, page_title, page_touched, "
-                         "page_project, page_category, page_text, page_len "
-                         "INT, FOREIGN KEY(page_project) REFERENCES project("
-                         "project_id) ON DELETE CASCADE, FOREIGN KEY("
-                         "page_category) REFERENCES category(cat_id))")
-
-        self.cur.execute("CREATE TABLE IF NOT EXISTS text(text_id INTEGER "
-                         "PRIMARY KEY, text_page, text_content, text_flags, "
-                         "FOREIGN KEY(text_page) REFERENCES page(page_id) ON "
-                         "DELETE CASCADE)")
+                         "page_project, page_category, page_text, FOREIGN "
+                         "KEY(page_project) REFERENCES project(project_id) "
+                         "ON DELETE CASCADE, FOREIGN KEY(page_category) "
+                         "REFERENCES category(cat_id))")
 
         self.cur.execute("CREATE TABLE IF NOT EXISTS category(cat_id INTEGER "
                          "PRIMARY KEY, cat_name)")
@@ -37,28 +36,31 @@ class DataWrapper:
 
             self.data.commit()
 
+    def get_categories(self):
+        cats = self.cur.execute("SELECT * FROM category").fetchall()
+        cats.pop(0)
+        cats.sort(key=lambda row: row[1])
+
+        return cats
+
     def create_new_project(self, title):
-        self.cur.execute("INSERT INTO project(project_title) VALUES(?)",
-                         (title,))
+        text = '[p]This is the overview page[/p]'
+
+        new_project = self.cur.execute("INSERT INTO project VALUES(?, ?, "
+                                       "?) RETURNING *", (None, title,
+                                                          datetime.datetime.now())).fetchone()
         pid = self.cur.lastrowid
 
         cat = self.cur.execute("SELECT cat_id FROM category WHERE "
                                "cat_name='Main'").fetchone()[0]
 
-        main_page = self.cur.execute("INSERT INTO page(page_title, "
-                                     "page_project, page_category) VALUES(?, "
-                                     "?, ?) RETURNING page_id", ('Overview',
-                                                                 pid, cat,
-                                                                 )).fetchone()[
-            0]
-
-        self.cur.execute("INSERT INTO text(text_page, text_content) VALUES("
-                         "?, ?)", (main_page, '[p]This is the overview page['
-                                              '/p]'))
+        self.cur.execute("INSERT INTO page VALUES(?, ?, ?, ?, ?, ?)",
+                         (None, 'Overview', datetime.datetime.now(), pid,
+                          cat, text,))
 
         self.data.commit()
 
-        return pid
+        return new_project
 
     def delete_project(self, title):
         self.cur.execute("DELETE FROM project WHERE project_title = ?",
@@ -67,27 +69,66 @@ class DataWrapper:
         self.data.commit()
 
     def get_project_list(self):
-        res = self.cur.execute("SELECT * FROM project")
-        projects = res.fetchall()
+        projects = self.cur.execute("SELECT * FROM project").fetchall()
 
         return projects
 
-    def get_project_pages(self, proj):
+    def get_project_pages_by_cat(self, proj):
         final = {}
         catsf = []
         pages = self.cur.execute("SELECT * FROM page WHERE page_project = "
-                                 "?", (proj, )).fetchall()
+                                 "?", (proj,)).fetchall()
 
         cats = self.cur.execute("SELECT page_category FROM page "
-                                "WHERE page_project = ?", (proj, )).fetchall()
+                                "WHERE page_project = ?", (proj,)).fetchall()
         for c in cats:
             catsf.append(self.cur.execute("SELECT * FROM category WHERE "
-                                          "cat_id = ?", (c[0], )).fetchone())
+                                          "cat_id = ?", (c[0],)).fetchone())
+        catsf.sort()
 
         for c in catsf:
             final[c[1]] = []
             for p in pages:
                 if p[4] == c[0]:
                     final[c[1]].append(p)
+            final[c[1]].sort(key=lambda row: row[1])
 
         return final
+
+    def add_page(self, title, project, category):
+        text = '[p]This is a blank page[/p]'
+        self.cur.execute("INSERT INTO page VALUES (?, ?, ?, ?, ?, ?)",
+                         (None, title, datetime.datetime.now(), project,
+                          category,
+                          text,))
+
+        self.data.commit()
+
+    def add_category(self, category):
+        self.cur.execute("INSERT INTO category(cat_name) VALUES(?)",
+                         (category,))
+
+        self.data.commit()
+
+    def get_project_pages(self, project):
+        pages = self.cur.execute("SELECT * FROM page WHERE page_project=?",
+                                 (project,)).fetchall()
+
+        return pages
+
+    def get_project_categories(self, page_list):
+        cat_ids = []
+        categories = []
+
+        for page in page_list:
+            if page[4] not in cat_ids:
+                cat_ids.append(page[4])
+
+        for c in cat_ids:
+            cat = self.cur.execute("SELECT * FROM category WHERE cat_id=?",
+                                   (c,)).fetchone()
+            categories.append(cat)
+
+        categories.sort(key=lambda category: category[1])
+
+        return categories

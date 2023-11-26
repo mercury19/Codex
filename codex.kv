@@ -47,68 +47,72 @@
         font_name: 'Audiowide-Regular'
         font_size: 30
         bold: True
-        pos_hint: {'center_y': .5}
         text: root.title_txt
 
-<NewProjectPrompt>:
-    canvas:
-        Color:
-            rgba: 1, .5, .8, 1
-        Rectangle:
-            size: self.size
+<NewProjectPopup>:
+    project_name: self.ids.input.text
 
     size_hint: None, None
     size: 360, 180
-    pos_hint: {'center_x': .5, 'center_y': .5}
 
-    Label:
-        size_hint: None, None
-        size: self.texture_size
-        pos_hint: {'center_x': .5, 'top': .92}
-
-        font_size: 24
-        padding: 10
-        bold: True
-        text: 'Create Project'
-
-    TextInput:
-        id: input
-        multiline: False
-        focus: True
-        write_tab: False
-
-        cursor_width: '8sp'
-        font_size: 18
-        text: 'New Project'
+    RelativeLayout:
+        canvas:
+            Color:
+                rgba: 1, .5, .8, 1
+            Rectangle:
+                size: self.size
 
         size_hint: None, None
-        width: 280
-        height: self.minimum_height
-        pos_hint: {'center_x': .5, 'center_y': .5}
+        size: 360, 180
 
-    Button:
-        size_hint: None, None
-        size: self.texture_size
-        pos_hint: {'center_x': .12, 'center_y': .15}
+        Label:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .5, 'top': .92}
 
-        font_size: 18
-        padding: 6
-        bold: True
-        text: 'Cancel'
+            font_size: 24
+            padding: 10
+            bold: True
+            text: 'Create Project'
 
-        on_release: self.parent.parent.remove_widget(self.parent)
+        TextInput:
+            id: input
+            multiline: False
+            focus: True
+            write_tab: False
 
-    Button:
-        size_hint: None, None
-        size: self.texture_size
-        pos_hint: {'center_x': .88, 'center_y': .15}
+            cursor_width: '8sp'
+            font_size: 18
+            text: 'New Project'
 
-        font_size: 18
-        padding: 6
-        bold: True
-        text: 'Create'
+            size_hint: None, None
+            width: 280
+            height: self.minimum_height
+            pos_hint: {'center_x': .5, 'center_y': .5}
 
-        on_release: app.add_project(root.ids.input.text, app.root.ids.project_list); self.parent.parent.remove_widget(self.parent)
+        Button:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .12, 'center_y': .15}
+
+            font_size: 18
+            padding: 6
+            bold: True
+            text: 'Cancel'
+
+            on_release: root.dismiss(animation=False)
+
+        Button:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .88, 'center_y': .15}
+
+            font_size: 18
+            padding: 6
+            bold: True
+            text: 'Create'
+
+            on_release: root.add_project(app.root.ids.project_list); root.dismiss(animation=False)
 
 <ProjectEntry>:
     size_hint: 1, None
@@ -116,10 +120,10 @@
     height: 100
 
     Button:
-        text: root.title_txt
+        text: root.project_ref.name
         size_hint: 1, 1
         on_press: app.root.prev_screen = app.root.current
-        on_release: root.open_project(app.root)
+        on_release: app.open_project(root.project_ref)
 
     Button:
         text: "X"
@@ -128,52 +132,76 @@
         pos_hint: {'center_x': .9, 'center_y': .5}
         on_release: root.remove_project()
 
-<ProjectPageList>:
-    canvas:
-        Color:
-            rgba: 0, .5, .6, 1
-        Rectangle:
-            size: self.size
-            pos: self.pos
+<ProjectPageListNode>:
+    page_text: ''
+    font_size: 24
 
-    page_tree: page_tree
-    size_hint_x: (3/19) if (app.root.width >= 950) else 0
-    do_scroll_x: False
-    always_overscroll: False
-
-    TreeView:
-        id: page_tree
-        size_hint_y: None
-        height: self.minimum_height
-
-<ProjectPage>:
-    canvas:
-        Color:
-            rgba: 1, .5, .6, 1
-        Rectangle:
-            size: self.size
-            pos: self.pos
-
-    on_pre_enter: print(self.pages_by_cat)
-    on_leave: app.root.prev_screen = 'mainmenu_screen'
-
-    TitleBar:
-        title_txt: root.project
+<NewCategoryPopup>:
+    size_hint: None, None
+    size: 360, 180
 
     RelativeLayout:
         canvas:
             Color:
-                rgba: .3, 0, .1, 1
+                rgba: 1, .5, .8, 1
             Rectangle:
                 size: self.size
-                pos: self.pos
 
-        size_hint: 1, (1-(60/root.height))
+        size_hint: None, None
+        size: 360, 180
 
-        ProjectPageList:
+        Label:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .5, 'top': .92}
 
+            font_size: 24
+            padding: 10
+            bold: True
+            text: 'Add Category'
+
+        TextInput:
+            id: input
+            multiline: False
+            focus: True
+            write_tab: False
+
+            cursor_width: '8sp'
+            font_size: 18
+            text: 'New Category'
+
+            size_hint: None, None
+            width: 280
+            height: self.minimum_height
+            pos_hint: {'center_x': .5, 'center_y': .5}
+
+        Button:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .12, 'center_y': .15}
+
+            font_size: 18
+            padding: 6
+            bold: True
+            text: 'Cancel'
+
+            on_release: root.dismiss(animation=False)
+
+        Button:
+            size_hint: None, None
+            size: self.texture_size
+            pos_hint: {'center_x': .88, 'center_y': .15}
+
+            font_size: 18
+            padding: 6
+            bold: True
+            text: 'Create'
+
+            on_release: app.create_category(root.ids.input.text); root.dismiss(animation=False)
 
 <CodexRoot>:
+    last_project: self.last_project
+
     Screen:
         id: mainmenu_screen
         name: 'mainmenu_screen'
@@ -218,7 +246,7 @@
 
             MainMenuButton:
                 text: 'New Project'
-                on_release: root.ids.mainmenu_screen.add_widget(Factory.NewProjectPrompt())
+                on_release: Factory.NewProjectPopup().open(animation=False)
 
             MainMenuButton:
                 text: 'Settings'
@@ -232,10 +260,6 @@
             Rectangle:
                 size: self.size
                 pos: self.pos
-
-        project_list: project_list
-
-        on_pre_enter: app.load_proj_list(root.ids.project_list)
 
         TitleBar:
             title_txt: 'Project Browser'
@@ -259,3 +283,81 @@
                 padding: (root.width * .08), (root.height * .02)
                 size_hint_y: None
                 height: self.minimum_height
+
+    Screen:
+        id: project_screen
+        name: 'project_screen'
+        canvas:
+            Color:
+                rgba: 1, .5, .6, 1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+
+        on_pre_enter: app.load_page_tree(); root.ids.project_title_bar.title_txt=root.last_project.name
+        on_leave: app.root.prev_screen = 'mainmenu_screen'
+
+        TitleBar:
+            id: project_title_bar
+
+            Button:
+                font_size: 8
+                bold: True
+                text: "add page"
+                size_hint: None, None
+                width: self.texture_size[0]
+                height: 40
+                halign: 'center'
+                valign: 'middle'
+                padding: 0, 0, 0, 5
+                pos_hint: {'center_y': .5}
+
+            Button:
+                font_size: 8
+                bold: True
+                text: "add category"
+                size_hint: None, None
+                width: self.texture_size[0]
+                height: 40
+                halign: 'center'
+                valign: 'middle'
+                padding: 0, 0, 0, 5
+                pos_hint: {'center_y': .5}
+                on_release: Factory.NewCategoryPopup().open(animation=False)
+
+        RelativeLayout:
+            canvas:
+                Color:
+                    rgba: .3, 0, .1, 1
+                Rectangle:
+                    size: self.size
+                    pos: self.pos
+
+            size_hint: 1, None
+            height: root.height - 60
+
+            ScrollView:
+                size_hint_x: (3/19) if (root.width >= 950) else 0
+                do_scroll_x: False
+                always_overscroll: False
+
+                TreeView:
+                    id: page_tree
+                    root_options: {'no_selection': True}
+                    canvas:
+                        Color:
+                            rgba: 1, 0, 0, 1
+                        Rectangle:
+                            size: self.size
+                            pos: self.pos
+
+                    size_hint_y: None
+                    height: self.minimum_height
+                    indent_start: 0
+
+
+            ContentPane:
+                id: content_pane
+                size_hint_x: (1-(3/19)) if (root.width >= 950) else 1
+                pos_hint: {'x': (root.ids.page_tree.width/root.width)}
+                text: root.ids.page_tree.selected_node.page_text if isinstance(root.ids.page_tree.selected_node, kivy.uix.treeview.TreeViewNode) else ''

@@ -1,22 +1,17 @@
 #! python
 
 import kivy
-from kivy.factory import Factory
-from kivy.uix.label import Label
-from kivy.uix.treeview import TreeViewNode, TreeViewLabel
-from kivy.uix.widget import Widget
-
-import db_wrapper
-
 from kivy.app import App
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
-from kivy.properties import StringProperty, ObjectProperty, NumericProperty, \
-    DictProperty
-from kivy.uix.screenmanager import ScreenManager, NoTransition, Screen
+from kivy.properties import StringProperty, NumericProperty, ObjectProperty
+from kivy.uix.button import Button
+from kivy.uix.modalview import ModalView
 from kivy.uix.relativelayout import RelativeLayout
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
+from kivy.uix.screenmanager import ScreenManager, NoTransition
+from kivy.uix.treeview import TreeViewLabel
+
+import project
 
 kivy.require('2.2.1')
 
@@ -25,47 +20,30 @@ Window.minimum_width = 800
 Window.minimum_height = 600
 Window.size = (800, 600)
 
-db = db_wrapper.DataWrapper()
 
+# Popup widget for user to create new project.
+class NewProjectPopup(ModalView):
+    project_name = StringProperty()
 
-# Prompt widget for user to create new project. May attempt to make into a
-# popup object?
-class NewProjectPrompt(RelativeLayout):
-    pass
+    def add_project(self, target):
+        new_project_row = project.cdx_data.create_new_project(
+            self.project_name)
+        new_project = project.Project(new_project_row[0], new_project_row[
+            1], new_project_row[2])
+        target.add_widget(ProjectEntry(project_ref=new_project))
 
 
 # The buttons to open projects on the project browser screen.
 # New properties:
-# title_txt: The name of the project as a string, to be used as the primary
-# button label and passed down for the project page title
-# proj_id: The database key of the project, to be passed through for
-# database access once the project screen is open
+# project: List containing the project Name and Id in that order.
 class ProjectEntry(RelativeLayout):
-    title_txt = StringProperty()
-    proj_id = NumericProperty()
-
-    # Method to create and open the projects screen, as the "switch_to()"
-    # method doesn't play well with the screenmanager setup.
-    def open_project(self, target):
-        screen_name = self.title_txt + '_screen'
-        if not target.has_screen(screen_name):
-            proj_screen = Factory.ProjectPage(self.title_txt, self.proj_id,
-                                              name=screen_name)
-            target.add_widget(proj_screen)
-        target.current = screen_name
+    project_ref = ObjectProperty()
 
     # Method to remove the project entry from the browser as well as the
-    # project from the database. Need to add a line to delete the screen as
-    # well. May need to add a parameter, that's a pain.
+    # project from the database.
     def remove_project(self):
-        db.delete_project(self.title_txt)
+        project.cdx_data.delete_project(self.project_ref.name)
         self.parent.remove_widget(self)
-
-
-# Scrollview to contain the treeview for the project page navigation.
-# Declared here only for access in methods if necessary.
-class ProjectPageList(ScrollView):
-    pass
 
 
 # Nodes for the project treeview. Should contain information to get page
@@ -74,34 +52,16 @@ class ProjectPageList(ScrollView):
 # page_id: Page key for database access.
 class ProjectPageListNode(TreeViewLabel):
     page_id = NumericProperty()
-
-
-class ContentPane(Widget):
+    page_text = StringProperty()
     pass
 
 
-class ProjectPageLayout(RelativeLayout):
+class ContentPane(Button):
+    raw_text = StringProperty()
+
+
+class NewCategoryPopup(ModalView):
     pass
-
-
-# Screen class for the project screen, as it must be dynamically
-# created/destroyed/modified.
-# New Properties:
-# project: The name of the project, for title purposes
-# proj_id: The database key for the project, passed from the connected
-# ProjectEntry to be used for data retrieval.
-class ProjectPage(Screen):
-    project = StringProperty()
-    proj_id = NumericProperty()
-    pages_by_cat = DictProperty()
-
-    # Init method to allow for setting of the above properties. May not be
-    # necessary?
-    def __init__(self, a, b, **kwargs):
-        super(ProjectPage, self).__init__(**kwargs)
-        self.project = a
-        self.proj_id = b
-        self.pages_by_cat = db.get_project_pages(b)
 
 
 # Root for the app.
@@ -110,32 +70,81 @@ class ProjectPage(Screen):
 # not work properly as project screens are added.
 class CodexRoot(ScreenManager):
     prev_screen = StringProperty()
+    last_project = project.Project(None, '', None)
+    pass
 
 
 class CodexApp(App):
-    dbref = db
+    cdx_projects = project.get_projects()
+    cdx_categories = project.get_categories()
     sm = None
 
     # I don't know why this is how it was done, but it works so whatever.
     def build(self):
         self.sm = CodexRoot()
         self.sm.transition = NoTransition()
+        if len(self.cdx_projects) > 0:
+            self.sm.last_project = self.cdx_projects[0]
+        self.load_proj_list(self.sm.ids.project_list)
         return self.sm
-
-    # Method to create a new project. Could be moved to NewProjectPrompt as
-    # that is the only place it should be used.
-    def add_project(self, proj_title, target):
-        proj_id = self.dbref.create_new_project(proj_title)
-        target.add_widget(ProjectEntry(title_txt=proj_title, proj_id=proj_id))
 
     # Method to get a list of existing projects from the database to ensure
     # the project browser screen is populated properly. Called only once,
     # on pre_enter for the project_browser screen.
     def load_proj_list(self, target):
-        proj_list_raw = self.dbref.get_project_list()
-        if len(proj_list_raw) > 0 and len(target.children) == 0:
-            for p in proj_list_raw:
-                target.add_widget(ProjectEntry(title_txt=p[1], proj_id=p[0]))
+        for p in self.cdx_projects:
+            target.add_widget(ProjectEntry(project_ref=p))
+
+    def open_project(self, new_project):
+        if self.sm.last_project == new_project:
+            self.sm.current = 'project_screen'
+        elif self.sm.last_project is not None:
+            self.clear_project_screen()
+            self.sm.last_project = new_project
+            self.sm.current = 'project_screen'
+        else:
+            self.sm.last_project = new_project
+            self.sm.current = 'project_screen'
+
+    def clear_project_screen(self):
+        nodes = []
+        for n in self.sm.ids.page_tree.iterate_all_nodes():
+            nodes.append(n)
+
+        for t in nodes:
+            self.sm.ids.page_tree.remove_node(t)
+
+    def load_page_tree(self):
+        if len(self.sm.ids.page_tree.root.nodes) > 0:
+            return
+        pages_by_cat = self.sm.last_project.get_pages_by_category()
+
+        p1 = pages_by_cat.pop('Main')[0]
+        mainpage = self.sm.ids.page_tree.add_node(
+            ProjectPageListNode(text=p1[1],
+                                page_id=p1[0],
+                                page_text=p1[5],
+                                is_open=True))
+        self.sm.ids.page_tree.select_node(mainpage)
+
+        if len(pages_by_cat.items()) > 0:
+            for cat, pages in pages_by_cat.items():
+                cat_node = self.sm.ids.page_tree.add_node(
+                    TreeViewLabel(text=cat,
+                                  font_size=24,
+                                  no_selection=True,
+                                  is_open=True))
+                for p in pages:
+                    self.sm.ids.page_tree.add_node(
+                        ProjectPageListNode(text=p[1],
+                                            page_id=p[0],
+                                            page_text=p[5],
+                                            is_open=True),
+                        cat_node)
+
+    def create_category(self, cat_name):
+        project.cdx_data.add_category(cat_name)
+        self.cdx_categories = project.get_categories()
 
 
 LabelBase.register(name='Audiowide-Regular',
