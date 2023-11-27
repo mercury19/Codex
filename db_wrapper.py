@@ -5,6 +5,8 @@ import sqlite3
 
 
 class DataWrapper:
+
+    # TODO Add more default categories?
     default_cat = ['Main', 'Character', 'Location', 'Organization']
 
     def __init__(self):
@@ -15,10 +17,27 @@ class DataWrapper:
 
         self.cur = self.data.cursor()
 
+        # Create the project table if it does not exist.
+        # Fields:
+        # project_id: Integer; Primary Key.
+        # project_title: String; Name of the project.
+        # project_touched: Timestamp; Time of last modification.
+        #
+        # TODO add fields:
+        # project_author: String; The creator/author of the project
+        # project_genre: String; The genre of the project
         self.cur.execute("CREATE TABLE IF NOT EXISTS project(project_id "
                          "INTEGER PRIMARY KEY, project_title, "
                          "project_touched)")
 
+        # Create the page table if it does not exist.
+        # Fields:
+        # page_id: Integer; Primary Key
+        # page_title: String; Title of the page.
+        # page_touched: Timestamp; Time of last modification
+        # page_project: Integer; Foreign Key for the project table project_id
+        # page_category: Integer; Foreign Key for the category table cat_id
+        # page_text: String; The raw text of the page.
         self.cur.execute("CREATE TABLE IF NOT EXISTS page(page_id INTEGER "
                          "PRIMARY KEY, page_title, page_touched, "
                          "page_project, page_category, page_text, FOREIGN "
@@ -26,9 +45,14 @@ class DataWrapper:
                          "ON DELETE CASCADE, FOREIGN KEY(page_category) "
                          "REFERENCES category(cat_id))")
 
+        # Create the category table if it does not exist.
+        # Fields:
+        # cat_id: Integer; Primary Key
+        # cat_name: String; Name of the category.
         self.cur.execute("CREATE TABLE IF NOT EXISTS category(cat_id INTEGER "
                          "PRIMARY KEY, cat_name)")
 
+        # Set default categories from list above.
         if len(self.cur.execute("SELECT * FROM category").fetchall()) <= 0:
             for d in self.default_cat:
                 self.cur.execute("INSERT INTO category(cat_name) VALUES(?)",
@@ -73,28 +97,6 @@ class DataWrapper:
 
         return projects
 
-    def get_project_pages_by_cat(self, proj):
-        final = {}
-        catsf = []
-        pages = self.cur.execute("SELECT * FROM page WHERE page_project = "
-                                 "?", (proj,)).fetchall()
-
-        cats = self.cur.execute("SELECT page_category FROM page "
-                                "WHERE page_project = ?", (proj,)).fetchall()
-        for c in cats:
-            catsf.append(self.cur.execute("SELECT * FROM category WHERE "
-                                          "cat_id = ?", (c[0],)).fetchone())
-        catsf.sort()
-
-        for c in catsf:
-            final[c[1]] = []
-            for p in pages:
-                if p[4] == c[0]:
-                    final[c[1]].append(p)
-            final[c[1]].sort(key=lambda row: row[1])
-
-        return final
-
     def add_page(self, title, project, category):
         text = '[p]This is a blank page[/p]'
         self.cur.execute("INSERT INTO page VALUES (?, ?, ?, ?, ?, ?)",
@@ -121,8 +123,8 @@ class DataWrapper:
         categories = []
 
         for page in page_list:
-            if page[4] not in cat_ids:
-                cat_ids.append(page[4])
+            if page.category not in cat_ids:
+                cat_ids.append(page.category)
 
         for c in cat_ids:
             cat = self.cur.execute("SELECT * FROM category WHERE cat_id=?",
@@ -132,3 +134,18 @@ class DataWrapper:
         categories.sort(key=lambda category: category[1])
 
         return categories
+
+    def touch_project(self, project_id):
+        self.cur.execute("UPDATE project SET project_touched=? WHERE "
+                         "project_id=?", (datetime.datetime.now(),
+                                          project_id,))
+        self.data.commit()
+
+    def touch_page(self, page_id):
+        project_id = self.cur.execute("UPDATE page SET page_touched=? WHERE "
+                                      "page_id=? RETURNING page_project",
+                                      (datetime.datetime.now(),
+                                       page_id)).fetchone()[0]
+        self.touch_project(project_id)
+
+        self.data.commit()

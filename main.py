@@ -4,8 +4,8 @@ import kivy
 from kivy.app import App
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
-from kivy.properties import StringProperty, NumericProperty, ObjectProperty
-from kivy.uix.button import Button
+from kivy.properties import StringProperty, ObjectProperty
+from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.screenmanager import ScreenManager, NoTransition
@@ -22,41 +22,29 @@ Window.size = (800, 600)
 
 
 # Popup widget for user to create new project.
+# Declared here so that it can be instantiated dynamically.
 class NewProjectPopup(ModalView):
-    project_name = StringProperty()
-
-    def add_project(self, target):
-        new_project_row = project.cdx_data.create_new_project(
-            self.project_name)
-        new_project = project.Project(new_project_row[0], new_project_row[
-            1], new_project_row[2])
-        target.add_widget(ProjectEntry(project_ref=new_project))
+    pass
 
 
 # The buttons to open projects on the project browser screen.
-# New properties:
-# project: List containing the project Name and Id in that order.
+# Properties:
+# project_ref: Project instance to be passed forward as project is accessed.
 class ProjectEntry(RelativeLayout):
     project_ref = ObjectProperty()
-
-    # Method to remove the project entry from the browser as well as the
-    # project from the database.
-    def remove_project(self):
-        project.cdx_data.delete_project(self.project_ref.name)
-        self.parent.remove_widget(self)
+    pass
 
 
 # Nodes for the project treeview. Should contain information to get page
 # from database.
-# New Properties:
-# page_id: Page key for database access.
+# Properties:
+# page_: Page object for data storage/manipulation.
 class ProjectPageListNode(TreeViewLabel):
-    page_id = NumericProperty()
-    page_text = StringProperty()
+    page_ = ObjectProperty()
     pass
 
 
-class ContentPane(Button):
+class ContentPane(Label):
     raw_text = StringProperty()
 
 
@@ -65,85 +53,96 @@ class NewCategoryPopup(ModalView):
 
 
 # Root for the app.
-# New Properties:
+# Properties:
 # prev_screen: Storage for the back button, as the "previous()" method does
 # not work properly as project screens are added.
+# current_project: Property to store the currently-relevant Project Instance.
 class CodexRoot(ScreenManager):
     prev_screen = StringProperty()
-    last_project = project.Project(None, '', None)
+    current_project = ObjectProperty()
     pass
 
 
 class CodexApp(App):
     cdx_projects = project.get_projects()
     cdx_categories = project.get_categories()
-    sm = None
+    cdx_root = None
 
     # I don't know why this is how it was done, but it works so whatever.
     def build(self):
-        self.sm = CodexRoot()
-        self.sm.transition = NoTransition()
+        self.cdx_root = CodexRoot()
+        self.cdx_root.transition = NoTransition()
         if len(self.cdx_projects) > 0:
-            self.sm.last_project = self.cdx_projects[0]
-        self.load_proj_list(self.sm.ids.project_list)
-        return self.sm
+            self.cdx_root.current_project = self.cdx_projects[0]
+        self.build_project_list(self.cdx_root.ids.project_list)
+        return self.cdx_root
 
-    # Method to get a list of existing projects from the database to ensure
-    # the project browser screen is populated properly. Called only once,
-    # on pre_enter for the project_browser screen.
-    def load_proj_list(self, target):
-        for p in self.cdx_projects:
-            target.add_widget(ProjectEntry(project_ref=p))
+    def build_project_list(self, layout):
+        for project_ in self.cdx_projects:
+            layout.add_widget(ProjectEntry(project_ref=project_))
 
-    def open_project(self, new_project):
-        if self.sm.last_project == new_project:
-            self.sm.current = 'project_screen'
-        elif self.sm.last_project is not None:
+    def open_project(self, project_):
+        if self.cdx_root.current_project == project_:
+            self.cdx_root.current = 'project_screen'
+        elif self.cdx_root.current_project is not None:
             self.clear_project_screen()
-            self.sm.last_project = new_project
-            self.sm.current = 'project_screen'
+            self.cdx_root.current_project = project_
+            self.cdx_root.current = 'project_screen'
         else:
-            self.sm.last_project = new_project
-            self.sm.current = 'project_screen'
+            self.cdx_root.current_project = project_
+            self.cdx_root.current = 'project_screen'
 
     def clear_project_screen(self):
         nodes = []
-        for n in self.sm.ids.page_tree.iterate_all_nodes():
-            nodes.append(n)
+        for node in self.cdx_root.ids.page_tree.iterate_all_nodes():
+            nodes.append(node)
 
-        for t in nodes:
-            self.sm.ids.page_tree.remove_node(t)
+        for node in nodes:
+            self.cdx_root.ids.page_tree.remove_node(node)
 
     def load_page_tree(self):
-        if len(self.sm.ids.page_tree.root.nodes) > 0:
+        if len(self.cdx_root.ids.page_tree.root.nodes) > 0:
             return
-        pages_by_cat = self.sm.last_project.get_pages_by_category()
+        pages_by_cat = self.cdx_root.current_project.get_pages_by_category()
 
         p1 = pages_by_cat.pop('Main')[0]
-        mainpage = self.sm.ids.page_tree.add_node(
-            ProjectPageListNode(text=p1[1],
-                                page_id=p1[0],
-                                page_text=p1[5],
+        mainpage = self.cdx_root.ids.page_tree.add_node(
+            ProjectPageListNode(text=p1.name_,
+                                page_=p1,
                                 is_open=True))
-        self.sm.ids.page_tree.select_node(mainpage)
+        self.cdx_root.ids.page_tree.select_node(mainpage)
 
         if len(pages_by_cat.items()) > 0:
             for cat, pages in pages_by_cat.items():
-                cat_node = self.sm.ids.page_tree.add_node(
+                cat_node = self.cdx_root.ids.page_tree.add_node(
                     TreeViewLabel(text=cat,
                                   font_size=24,
                                   no_selection=True,
                                   is_open=True))
                 for p in pages:
-                    self.sm.ids.page_tree.add_node(
-                        ProjectPageListNode(text=p[1],
-                                            page_id=p[0],
-                                            page_text=p[5],
+                    self.cdx_root.ids.page_tree.add_node(
+                        ProjectPageListNode(text=p.name_,
+                                            page_=p,
                                             is_open=True),
                         cat_node)
 
-    def create_category(self, cat_name):
-        project.cdx_data.add_category(cat_name)
+    def add_project(self, title):
+        raw_project = project.cdx_data.create_new_project(title)
+        new_project = project.Project(raw_project[0], raw_project[
+            1], raw_project[2])
+        self.cdx_root.ids.project_list.add_widget(ProjectEntry(
+            project_ref=new_project), index=len(
+            self.cdx_root.ids.project_list.children))
+        self.cdx_projects = project.get_projects()
+        self.open_project(new_project)
+
+    def remove_project(self, project_, layout):
+        project.cdx_data.delete_project(project_)
+        self.cdx_root.ids.project_list.remove_widget(layout)
+        self.cdx_projects = project.get_projects()
+
+    def create_category(self, name_):
+        project.cdx_data.add_category(name_)
         self.cdx_categories = project.get_categories()
 
 
